@@ -1,0 +1,86 @@
+--회원번호, 회원아이디, 이름, 비밀번호
+create sequence pboard_member_seq;
+create table pboard_member(
+	mem_no number(2) primary key,
+	mem_id varchar2(50) unique not null,
+	mem_name varchar2(50) not null,
+	mem_pwd varchar2(50) not null
+);
+
+update PBOARD_MEMBER set enabled=0;
+update PBOARD_MEMBER set mem_auth='ROLE_USER';
+insert into PBOARD_MEMBER values(pboard_member_seq.nextval, 'salmon', '연어', '123123');
+insert into PBOARD_MEMBER values(pboard_member_seq.nextval, 'coke', '콜라', '123123');
+insert into PBOARD_MEMBER values(pboard_member_seq.nextval, 'admin', '관리자', '123123', 0, 'ROLE_ADMIN');
+alter table pboard_member ADD(mem_auth varchar2(20));	-- security
+alter table pboard_member ADD(enabled number(1));		-- security
+alter table pboard_member MODIFY(mem_pwd varchar2(100));
+select * from PBOARD_MEMBER;
+
+--게시글번호, 제목, 내용, 작성자회원번호, 작성자이름, 날짜
+create sequence pboard_seq;
+create table pboard(
+	board_no number(5) primary key,
+	board_title varchar2(100) not null,
+	board_content CLOB,
+	mem_no number(2) not null,
+	board_date date default sysdate
+);
+
+ALTER TABLE pboard ADD CONSTRAINTS FK_mem_no FOREIGN KEY (mem_no) REFERENCES pboard_member(mem_no);
+insert into pboard values(pboard_seq.nextval, '제목 테스트 7', '내용내용내용', 2, sysdate);
+insert into pboard values(pboard_seq.nextval, '제목 테스트 28', '내용내용내용', 3, sysdate);
+insert into pboard values(pboard_seq.nextval, '제목 테스트 26', '내용내용내용3', 2, sysdate);
+ALTER TABLE pboard ADD(category varchar2(10));
+
+select * from pboard where category='notice' and board_title || board_content like '%' || '테스트' || '%' order by board_no desc;
+select count(*) from (select * from pboard where category LIKE 'notice' OR category LIKE 'ask' OR category LIKE 'board' OR category is null) WHERE board_title like '%' || '테스트' || '%';
+select count(*) from pboard WHERE board_title like '%' || '테스트' || '%'; 
+
+--첨부파일
+create table pboard_attach(
+	board_no number(5) not null,
+	uuid varchar2(100) not null,
+	uploadPath varchar2(200) not null,
+	fileName varchar2(100) not null,
+	fileType char(1) default 'I'
+);
+
+delete pboard_attach;
+select * from pboard_attach;
+update PBOARD_ATTACH set board_no=24 where board_no=0;
+alter table pboard_attach modify (uploaddate varchar2(15));
+ALTER TABLE pboard_attach ADD(uploadtime varchar2(15));
+ALTER TABLE pboard_attach ADD(fileSize varchar2(20));
+update pboard_attach set filesize=null;
+ALTER TABLE pboard_attach modify(fileSize number);
+
+
+--security
+create table pboard_member_auth(
+	mem_id varchar2(50) not null,
+	mem_auth varchar2(50) not null,
+	isLoged number(2),
+	constraint fk_member_auth foreign key(mem_id) references pboard_member(mem_id)
+);
+
+insert into pboard_member_auth values('salmon','ROLE_USER',1);
+insert into pboard_member_auth values('coke','ROLE_USER',0);
+insert into pboard_member_auth values('admin','ROLE_ADMIN',0);
+ALTER TABLE pboard_member_auth ADD(isLoged number(2));
+update pboard_member_auth set isLoged=0;
+select brd.*, m.mem_name from ( select row_number() over(order by board_no desc) no,
+		b.* from(select * from pboard) b ) brd inner join pboard_member m on brd.mem_no=m.mem_no where no between 11 and 20;
+
+
+--댓글
+create sequence pboard_reply_seq;
+create table pboard_reply(
+	reply_no number(5) primary key,
+	board_no number(5) not null,
+	reply varchar2(1000) not null,
+	mem_no number(2) not null,
+	reply_date date default sysdate
+);
+select * from pboard_reply;
+drop table pboard_reply;		

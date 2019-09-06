@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:mybatis-spring="http://mybatis.org/schema/mybatis-spring"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://mybatis.org/schema/mybatis-spring http://mybatis.org/schema/mybatis-spring-1.2.xsd
+		http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.3.xsd
+		http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.3.xsd">
+
+	<!-- 트랜잭션 처리를 위해 component-scan을 root에서 진행. controller는 빼고 스캔 진행  -->
+	<context:component-scan base-package="com.spring">
+		<context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+	</context:component-scan>
+
+	<!-- Root Context: defines shared resources visible to all other web components -->
+	<!-- HikariCP 이용한 커넥션 등록하기 -->
+	<bean id="hikariConfig" class="com.zaxxer.hikari.HikariConfig">
+		<property name="driverClassName" value="oracle.jdbc.driver.OracleDriver" />
+		<property name="jdbcUrl" value="jdbc:oracle:thin:@112.171.26.47:3300:orcl" />
+		<property name="username" value="daims_test" />
+		<property name="password" value="test1234" />
+	</bean>
+
+	<!-- DataSource에 정보 넘겨주기 -->
+	<bean id="ds" class="com.zaxxer.hikari.HikariDataSource" destroy-method="close">
+		<constructor-arg ref="hikariConfig" />
+	</bean>
+
+	<!-- myBatis SqlSeesionFactory 빈 생성하기 -->
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="ds" />
+	</bean>
+
+	<mybatis-spring:scan base-package="com.spring.mapper" />	<!-- mapper에서 자동 스캔 -->
+	<tx:annotation-driven/>
+	<!-- 트랜잭션 처리 -->
+	<!-- 1. 트랜잭션 매니저 등록 -->
+	<bean id="transactionManager"
+		class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="ds" />
+	</bean>
+
+</beans>

@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.spring.mapper.BoardMapper">
+
+	<!-- 읽기 -->
+	<select id="reading" resultType="com.spring.domain.BoardVO">
+		SELECT
+			board_title,
+			board_no,
+			board_ref,
+			board_depth,
+			board_re_no,
+			board_date,
+			CATEGORY,
+			board_content,
+			m.mem_no
+		FROM
+			PBOARD b
+		INNER JOIN pboard_member m ON
+			b.mem_no = m.mem_no
+		WHERE 
+			board_no=#{board_no}
+	</select>
+	
+	<!-- 공지 -->
+	<select id="getNotices" resultType="com.spring.domain.BoardVO">
+		SELECT
+			category,
+			board_no,
+			board_title,
+			board_content,
+			mem_name,
+			board_date
+		FROM
+			(
+			SELECT
+				ROW_NUMBER() OVER(ORDER BY b.board_date DESC) rnum, 
+				b.category,
+				b.board_no,
+				b.board_title,
+				b.board_content,
+				m.mem_name,
+				b.board_date
+			FROM
+				PBOARD b 
+			INNER JOIN pboard_member m ON
+				b.mem_no = m.mem_no
+			WHERE CATEGORY LIKE 'notice')
+		WHERE
+			rnum between 0 and 3
+	</select>
+	
+	<!-- 페이징된 게시물 리스트 -->
+	<select id="getOnePage" resultType="com.spring.domain.BoardVO">
+		 SELECT
+			brd.category,
+			brd.board_title,
+			brd.board_no,
+			brd.board_ref,
+			brd.board_re_no,
+			brd.board_depth,
+			brd.board_date,
+			brd.mem_name
+		FROM
+			(
+			SELECT
+				rownum as NO,
+				b.category,
+				b.board_no,
+				b.board_title,
+				b.board_content,
+				b.board_date,
+				b.board_ref,
+				b.board_depth,
+				b.board_re_no,
+				m.MEM_NAME
+			FROM
+				(
+				<include refid="b"/> ) b
+			INNER JOIN pboard_member m ON
+				b.mem_no = m.mem_no ) brd
+			WHERE no between #{start} and #{end}
+	</select>
+	
+	<!-- 수정 -->
+	<update id="updating" >
+		UPDATE
+			pboard
+		SET
+			board_title =#{board_title},
+			board_content =#{board_content},
+			category =#{category}
+		WHERE
+			board_no =#{board_no}
+	</update>
+
+	<!-- 삭제 -->
+	<delete id="delete">
+		delete 
+			pboard 
+		where 
+			board_no=#{board_no}
+	</delete>
+	
+	<!-- 등록 -->
+	<insert id="insert">
+		<selectKey keyProperty="board_no" order="BEFORE" resultType="int">
+			select pboard_seq.nextval from dual
+		</selectKey>
+		INSERT 
+			INTO
+			pboard 
+		VALUES(#{board_no}, 
+			   #{board_title}, 
+			   #{board_content}, 
+			   #{mem_no}, 
+			   TO_CHAR(sysdate, 'yyyy-MM-dd HH24:MI:SS'), 
+			   #{category},
+			   <if test="category=='answer'">
+			   	1,
+			   	#{board_ref},
+			   	#{board_ref}
+			   </if>
+			   <if test="category!='answer'">
+			   	0,
+			   	#{board_no},
+			   	0
+			   </if>
+			   )
+	</insert>
+	
+	<!-- 검색 -->
+	<select id="getSearchPage" resultType="com.spring.domain.BoardVO">
+		SELECT
+			*
+		FROM 
+			(<include refid="innerCommon"/> ) b
+		WHERE
+			NO BETWEEN #{start} AND #{end}
+	</select>
+	
+	<!-- 전체 게시물 수 -->
+	<select id="total" resultType="java.lang.Integer">
+		select 
+			count(*) 
+		from 
+			pboard
+	</select>
+	
+	<!-- 검색 게시물 수 -->
+	<select id="searchListTotal" resultType="java.lang.Integer">
+		SELECT
+			count(*)
+		FROM 
+			(
+			<include refid="innerCommon" />
+			)
+	</select>
+	
+	<sql id="b">
+		SELECT
+			board_title,
+			board_no,
+			board_ref,
+			board_depth,
+			board_re_no,
+			board_date,
+			CATEGORY,
+			board_content,
+			mem_no, 
+			mem_name
+		FROM
+			(
+			SELECT
+				p.*,
+				q.mem_name
+			FROM
+				PBOARD p
+			INNER JOIN pboard_member q ON
+				p.mem_no = q.mem_no)
+		START WITH
+			board_re_no = 0
+		CONNECT BY
+			PRIOR board_no = board_re_no ORDER siblings BY <include refid="aligns"/> BOARD_REF DESC
+	</sql>
+	
+	<sql id="aligns">
+	<choose>
+		<when test="align=='board_no'">
+		 board_no 
+		</when>
+		<when test="align=='board_title'">
+		 board_title 
+		</when>
+		<when test="align=='category'">
+		 category 
+		</when>
+		<when test="align=='board_date'">
+		 board_date 
+		</when>
+		<when test="align=='mem_name'">
+		 MEM_NAME 
+		</when>
+	</choose>
+		<if test="order=='asc'">
+			asc,
+		</if>
+		<if test="order=='desc'">
+			desc,
+		</if>
+	</sql>	
+	
+	<sql id="innerCommon">
+		SELECT
+			rownum as NO,
+			search.*
+		FROM
+		(
+		SELECT
+			b.category,
+			b.board_no,
+			b.board_title,
+			b.board_content,
+			b.mem_no,
+			m.mem_name,
+			b.board_date,
+			b.board_depth,
+			b.board_ref		
+		FROM
+			(
+			<include refid="b" /> ) b
+		INNER JOIN pboard_member m ON
+			b.mem_no = m.mem_no
+			<where>
+				<if test="category != 'all'"><!-- 공지/질문/자유 -->
+					CATEGORY = #{category}
+				</if>
+				<if test="keyword != null"><!-- 키워드 o -->
+					AND
+					<choose>
+						<when test="criteria == 'all'">
+							board_title LIKE '%' || #{keyword} || '%' 
+							OR board_content LIKE '%' || #{keyword} || '%'
+							OR m.mem_name LIKE '%' || #{keyword} || '%'
+						</when>
+						<when test="criteria == 'title'">
+							board_title LIKE '%' || #{keyword} || '%'
+						</when>
+						<when test="criteria == 'content'">
+							board_content LIKE '%' || #{keyword} || '%'
+						</when>
+						<when test="criteria == 'writer'">
+							m.mem_name LIKE '%' || #{keyword} || '%'
+						</when>
+						<when test="criteria == 'tc'">
+							board_title LIKE '%' || #{keyword} || '%' 
+							OR board_content LIKE '%' || #{keyword} || '%'
+						</when>
+					</choose>
+				</if>
+			</where>
+		) SEARCH 
+	</sql>
+</mapper>

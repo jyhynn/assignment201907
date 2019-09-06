@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.spring.mapper.MemberMapper">
+
+	<!-- security 로그인 -->
+	<!-- resultMap : 데이터베이스 결과 데이터를 객체에 로드시켜줌 -->
+	<resultMap type="com.spring.domain.MemberVO" id="memberMap">
+		<id property="mem_id" column="mem_id"/>
+		<result property="mem_no" column="mem_no"/>
+		<result property="mem_id" column="mem_id"/>
+		<result property="mem_pwd" column="mem_pwd"/>
+		<result property="mem_name" column="mem_name"/>
+		<result property="enabled" column="enabled"/>
+		<result property="mem_auth" column="mem_auth"/>
+	</resultMap>
+	<select id="read" resultMap="memberMap">
+        SELECT
+			mem_no,
+			mem_id,
+			mem_pwd,
+			mem_name,
+			enabled,
+			mem_auth
+		FROM
+			PBOARD_MEMBER
+		WHERE
+			mem_id = #{mem_id}
+	</select>
+</mapper>
